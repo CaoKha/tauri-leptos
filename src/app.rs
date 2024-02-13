@@ -1,7 +1,6 @@
 use leptos::error::Error;
 // use leptos::html::{button, div, span};
 use leptos::leptos_dom::ev::{Event, MouseEvent, SubmitEvent};
-use leptos::leptos_dom::logging::console_log;
 use leptos::leptos_dom::{ErrorKey, Errors};
 use leptos::*;
 use serde::{Deserialize, Serialize};
