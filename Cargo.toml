@@ -12,6 +12,8 @@ wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 log = "0.4"
+gloo-timers = { version = "0.3", features = ["futures"] }
+uuid = { version = "1.7", features = ["v4"]}
 
 [workspace]
 members = ["src-tauri"]

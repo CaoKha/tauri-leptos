@@ -1,3 +1,4 @@
+use gloo_timers::future::TimeoutFuture;
 use leptos::error::Error;
 // use leptos::html::{button, div, span};
 use leptos::leptos_dom::ev::{Event, MouseEvent, SubmitEvent};
@@ -105,6 +106,9 @@ pub fn App() -> impl IntoView {
             <WrapsChildren>"A1" "B1" "C1"</WrapsChildren>
             <WatchSignal/>
             <CreateEffect/>
+            <CreateResource/>
+            <SuspenseComponent/>
+            <CreateAction/>
         </main>
     }
     // Counter(0,2)
@@ -545,49 +549,169 @@ fn StopButton() -> impl IntoView {
     let num = use_context::<RwSignal<i32>>().expect("to get num signal");
     let stop = watch(
         move || num.get(),
-        move |num, prev_num, _ | {
+        move |num, prev_num, _| {
             log::debug!("Number: {:?}; Prev: {:?}", num, prev_num);
             leptos_dom::logging::console_log("hey");
         },
-        false
+        false,
     );
-    let stop_watching = move |_| {stop(); leptos_dom::logging::console_log("hello");};
-    view! {
-        <button on:click=stop_watching>
-        "Stop"
-        </button>
-    }
+    let stop_watching = move |_| {
+        stop();
+        leptos_dom::logging::console_log("hello");
+    };
+    view! { <button on:click=stop_watching>"Stop"</button> }
 }
 
 #[component]
 fn SetButton() -> impl IntoView {
-    let num = use_context::<RwSignal<i32>>().expect("to get num signal"); 
-    let increment = move |_| num.update(|n| *n += 1); 
-    view! {
-        <button on:click=increment>
-        "Increment"
-        </button>
-    }
+    let num = use_context::<RwSignal<i32>>().expect("to get num signal");
+    let increment = move |_| num.update(|n| *n += 1);
+    view! { <button on:click=increment>"Increment"</button> }
 }
 
 #[component]
 fn CreateEffect() -> impl IntoView {
     let t_a = create_rw_signal(0);
     let t_b = create_rw_signal(0);
-    create_effect(move|_| {
+    create_effect(move |_| {
         leptos_dom::log!("value of a: {:?}", t_a.get());
     });
     view! {
         <div>"Value a:" {t_a}</div>
         <div>"Value b:" {t_b}</div>
-        <button on:click=move |_| t_a.update(move|a| *a += 1)>
-        "Increment a"
-        </button>
-        <button on:click=move |_| t_b.update(move|b| *b += 1)>
-        "Increment b"
-        </button>
+        <button on:click=move |_| t_a.update(move |a| *a += 1)>"Increment a"</button>
+        <button on:click=move |_| t_b.update(move |b| *b += 1)>"Increment b"</button>
     }
-
 }
 
+async fn load_data(value: i32) -> i32 {
+    TimeoutFuture::new(1000).await;
+    value * 10
+}
 
+#[component]
+fn CreateResource() -> impl IntoView {
+    let num = 2;
+    let count = create_rw_signal(1);
+    let async_data = create_resource(
+        move || count.get(),
+        |value: i32| async move { load_data(value).await },
+    );
+    let stable = create_resource(|| (), move |_| async move { load_data(num).await });
+    let increase_count = move |_| count.update(move |count| *count += 1);
+    view! {
+        <h1>"My data"</h1>
+        <button on:click=increase_count>"Increment Count"</button>
+        {move || match async_data.get() {
+            None => view! { <p>"Loading ..."</p> }.into_view(),
+            Some(data) => view! { <p>{data}</p> }.into_view(),
+        }}
+    }
+}
+
+#[component]
+fn SuspenseComponent() -> impl IntoView {
+    let count_a = create_rw_signal(2);
+    let count_b = create_rw_signal(5);
+    let a = create_resource(
+        move || count_a.get(),
+        |count_a| async move { load_data(count_a).await },
+    );
+    let b = create_resource(
+        move || count_b.get(),
+        |count_b| async move { load_data(count_b).await },
+    );
+    let increase_AB = move |_| {
+        count_a.update(move |c| *c += 1);
+        count_b.update(move |c| *c += 2);
+    };
+    view! {
+        <h1>"My Data"</h1>
+        <button on:click=increase_AB>"Increment AB"</button>
+        <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+            <h2>"My Data a: "</h2>
+            {move || a.get()}
+            <h2>"My Data b: "</h2>
+            {move || { b.get() }}
+        </Suspense>
+    }
+}
+
+async fn add_todo(text: &str) -> uuid::Uuid {
+    _ = text;
+    TimeoutFuture::new(1000).await;
+    uuid::Uuid::new_v4()
+}
+
+#[component]
+fn CreateAction() -> impl IntoView {
+    let action1 = create_action(|input: &String| {
+        let input = input.to_owned();
+        async move { add_todo(&input).await }
+    });
+    let submitted = action1.input();
+    let pending = action1.pending();
+    let todo_id = action1.value();
+
+    let input_ref = create_node_ref::<html::Input>();
+
+    view! {
+        <form on:submit=move |ev| {
+            ev.prevent_default();
+            let input = input_ref.get().expect("input to exist");
+            action1.dispatch(input.value());
+        }>
+
+            <label>"What do you need to do?" <input type="text" node_ref=input_ref/></label>
+            <button type="submit">"Add Todo"</button>
+        </form>
+        <p>{move || pending.get().then(|| "Loading...")}</p>
+        <p>
+            "Submitted: "
+            <code>{move || format!("{:#?}", submitted.get())}</code>
+        </p>
+        <p>
+            "Pending: "
+            <code>{move || format!("{:#?}", pending.get())}</code>
+        </p>
+        <p>
+            "Todo ID: "
+            <code>{move || format!("{:#?}", todo_id.get())}</code>
+        </p>
+    }
+}
+
+#[component]
+pub fn LoggedIn<F, IV>(fallback: F, children: ChildrenFn) -> impl IntoView
+where
+    F: Fn() -> IV + 'static,
+    IV: IntoView,
+{
+    Suspense(
+        component_props_builder(&Suspense)
+            .fallback(|| ())
+            .children({
+                // fallback and children are moved into this closure
+                Box::new(move || {
+                    {
+                        // fallback and children captured here
+                        leptos::Fragment::lazy(|| {
+                            vec![
+                                (Show(
+                                    component_props_builder(&Show)
+                                        .when(|| true)
+                                        // but fallback is moved into Show here
+                                        .fallback(fallback)
+                                        // and children is moved into Show here
+                                        .children(children)
+                                        .build(),
+                                )
+                                .into_view()),
+                            ]
+                        })
+                    }
+                })
+            })
+            .build(),
+    )
+}
