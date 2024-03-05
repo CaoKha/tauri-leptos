@@ -4,6 +4,7 @@ use leptos::error::Error;
 use leptos::leptos_dom::ev::{Event, MouseEvent, SubmitEvent};
 use leptos::leptos_dom::{ErrorKey, Errors};
 use leptos::*;
+use leptos_router::*;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen::prelude::*;
@@ -59,57 +60,63 @@ pub fn App() -> impl IntoView {
     };
 
     view! {
-        <main class="container">
-            <div class="row">
-                <a href="https://tauri.app" target="_blank">
-                    <img src="public/tauri.svg" class="logo tauri" alt="Tauri logo"/>
-                </a>
-                <a href="https://docs.rs/leptos/" target="_blank">
-                    <img src="public/leptos.svg" class="logo leptos" alt="Leptos logo"/>
-                </a>
-            </div>
+        <Router>
+            <main class="container">
+                <Routes>
+                    <Route path="" view=FormExample/>
+                </Routes>
+                <div class="row">
+                    <a href="https://tauri.app" target="_blank">
+                        <img src="public/tauri.svg" class="logo tauri" alt="Tauri logo"/>
+                    </a>
+                    <a href="https://docs.rs/leptos/" target="_blank">
+                        <img src="public/leptos.svg" class="logo leptos" alt="Leptos logo"/>
+                    </a>
+                </div>
 
-            <p>"Click on the Tauri and Leptos logos to learn more."</p>
+                <p>"Click on the Tauri and Leptos logos to learn more."</p>
 
-            <p>
-                "Recommended IDE setup: " <a href="https://code.visualstudio.com/" target="_blank">
-                    "VS Code"
-                </a> " + " <a href="https://github.com/tauri-apps/tauri-vscode" target="_blank">
-                    "Tauri"
-                </a> " + " <a href="https://github.com/rust-lang/rust-analyzer" target="_blank">
-                    "rust-analyzer"
-                </a>
-            </p>
+                <p>
+                    "Recommended IDE setup: "
+                    <a href="https://code.visualstudio.com/" target="_blank">
+                        "VS Code"
+                    </a> " + " <a href="https://github.com/tauri-apps/tauri-vscode" target="_blank">
+                        "Tauri"
+                    </a> " + " <a href="https://github.com/rust-lang/rust-analyzer" target="_blank">
+                        "rust-analyzer"
+                    </a>
+                </p>
 
-            <form class="row" on:submit=greet>
-                <input id="greet-input" placeholder="Enter a name..." on:input=update_name/>
-                <button type="submit">"Greet"</button>
-            </form>
+                <form class="row" on:submit=greet>
+                    <input id="greet-input" placeholder="Enter a name..." on:input=update_name/>
+                    <button type="submit">"Greet"</button>
+                </form>
 
-            <p>
-                <b>{move || greet_msg.get()}</b>
-            </p>
-            <DynamicList initial_length=3/>
-            <NestedSignals/>
-            <MemorySlices/>
-            <ControlledInputs/>
-            <UncontrolledInputs/>
-            <TextArea/>
-            <SelectBar/>
-            <MultipleReturnType/>
-            <ShowComponent/>
-            <ErrorHandling/>
-            <ParentChildCom/>
-            <TakesChildren render_prop=|| {
-                view! { <p>"Hello World"</p> }
-            }>"Some text" <span>"A span"</span></TakesChildren>
-            <WrapsChildren>"A1" "B1" "C1"</WrapsChildren>
-            <WatchSignal/>
-            <CreateEffect/>
-            <CreateResource/>
-            <SuspenseComponent/>
-            <CreateAction/>
-        </main>
+                <p>
+                    <b>{move || greet_msg.get()}</b>
+                </p>
+                <DynamicList initial_length=3/>
+                <NestedSignals/>
+                <MemorySlices/>
+                <ControlledInputs/>
+                <UncontrolledInputs/>
+                <TextArea/>
+                <SelectBar/>
+                <MultipleReturnType/>
+                <ShowComponent/>
+                <ErrorHandling/>
+                <ParentChildCom/>
+                <TakesChildren render_prop=|| {
+                    view! { <p>"Hello World"</p> }
+                }>"Some text" <span>"A span"</span></TakesChildren>
+                <WrapsChildren>"A1" "B1" "C1"</WrapsChildren>
+                <WatchSignal/>
+                <CreateEffect/>
+                <CreateResource/>
+                <SuspenseComponent/>
+                <CreateAction/>
+            </main>
+        </Router>
     }
     // Counter(0,2)
 }
@@ -591,13 +598,11 @@ async fn load_data(value: i32) -> i32 {
 
 #[component]
 fn CreateResource() -> impl IntoView {
-    let num = 2;
     let count = create_rw_signal(1);
     let async_data = create_resource(
         move || count.get(),
         |value: i32| async move { load_data(value).await },
     );
-    let stable = create_resource(|| (), move |_| async move { load_data(num).await });
     let increase_count = move |_| count.update(move |count| *count += 1);
     view! {
         <h1>"My data"</h1>
@@ -666,52 +671,70 @@ fn CreateAction() -> impl IntoView {
             <button type="submit">"Add Todo"</button>
         </form>
         <p>{move || pending.get().then(|| "Loading...")}</p>
-        <p>
-            "Submitted: "
-            <code>{move || format!("{:#?}", submitted.get())}</code>
-        </p>
-        <p>
-            "Pending: "
-            <code>{move || format!("{:#?}", pending.get())}</code>
-        </p>
-        <p>
-            "Todo ID: "
-            <code>{move || format!("{:#?}", todo_id.get())}</code>
-        </p>
+        <p>"Submitted: " <code>{move || format!("{:#?}", submitted.get())}</code></p>
+        <p>"Pending: " <code>{move || format!("{:#?}", pending.get())}</code></p>
+        <p>"Todo ID: " <code>{move || format!("{:#?}", todo_id.get())}</code></p>
     }
 }
 
 #[component]
-pub fn LoggedIn<F, IV>(fallback: F, children: ChildrenFn) -> impl IntoView
-where
-    F: Fn() -> IV + 'static,
-    IV: IntoView,
-{
-    Suspense(
-        component_props_builder(&Suspense)
-            .fallback(|| ())
-            .children({
-                // fallback and children are moved into this closure
-                Box::new(move || {
-                    {
-                        // fallback and children captured here
-                        leptos::Fragment::lazy(|| {
-                            vec![
-                                (Show(
-                                    component_props_builder(&Show)
-                                        .when(|| true)
-                                        // but fallback is moved into Show here
-                                        .fallback(fallback)
-                                        // and children is moved into Show here
-                                        .children(children)
-                                        .build(),
-                                )
-                                .into_view()),
-                            ]
-                        })
-                    }
-                })
-            })
-            .build(),
-    )
+fn FormExample() -> impl IntoView {
+    let query = use_query_map();
+    let name = move || query.get().get("name").cloned().unwrap_or_default();
+    let number = move || query.get().get("number").cloned().unwrap_or_default();
+    let select = move || query.get().get("select").cloned().unwrap_or_default();
+    view! {
+        <table>
+            <tr>
+                <td>
+                    <code>"name"</code>
+                </td>
+                <td>{name}</td>
+            </tr>
+            <tr>
+                <td>
+                    <code>"number"</code>
+                </td>
+                <td>{number}</td>
+            </tr>
+            <tr>
+                <td>
+                    <code>"select"</code>
+                </td>
+                <td>{select}</td>
+            </tr>
+        </table>
+        <h2>"Manual Submission"</h2>
+        <Form method="GET" action="">
+            <input type="text" name="name" value=name/>
+            <input type="number" name="number" value=number/>
+            <select name="select">
+                <option selected=move || select() == "A">"A"</option>
+                <option selected=move || select() == "B">"B"</option>
+                <option selected=move || select() == "C">"C"</option>
+            </select>
+
+            <input type="submit"/>
+        </Form>
+        <h2>"Automatic Submission"</h2>
+        <Form method="GET" action="">
+            <input
+                type="text"
+                name="name"
+                value=name
+                // this oninput attribute will cause the
+                // form to submit on every input to the field
+                oninput="this.form.requestSubmit()"
+            />
+            <input type="number" name="number" value=number oninput="this.form.requestSubmit()"/>
+            <select name="select" onchange="this.form.requestSubmit()">
+                <option selected=move || select() == "A">"A"</option>
+                <option selected=move || select() == "B">"B"</option>
+                <option selected=move || select() == "C">"C"</option>
+            </select>
+            // submitting should cause a client-side
+            // navigation, not a full reload
+            <input type="submit"/>
+        </Form>
+    }
 }
